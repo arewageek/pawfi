@@ -20,17 +20,16 @@ enum TradeType {
 
 // user schema
 model User {
-  id      String @unique @default(uuid())
+  id String @unique @default(uuid())
 
   // user biodata
   chatId  String @unique
   balance Float
 
   // relationships
-  stats    Stat[]
-  tokens   Token[]
-  position Position[]
-  trades   Trade[]
+  stats     Stat[]
+  tokens    Token[]
+  trades    Trade[]
 
   // timestamps
   createdAt DateTime @default(now())
@@ -55,40 +54,18 @@ model Stat {
 // tokens schema
 model Token {
   id     String @unique @default(uuid())
+  
   name   String
   symbol String
   ca     String @unique
+
+  isOpenTrade Boolean @default(false)
 
   // relationships
   user   User   @relation(fields: [userId], references: [id])
   userId String
 
-  position Position[]
-  trades Trade[]
-
-  // timestamps
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-// transactions schema
-model Position {
-  id String @unique @default(uuid())
-
-  balance Float
-
-  isOpenTrade Boolean @default(true)
-
-  // relaionships
-  user  User  @relation(fields: [userId], references: [id])
-  token Token @relation(fields: [tokenId], references: [id])
-  trades Trade[]
-
-  // relationship references
-  userId  String
-  tokenId String
-  tradeId String
-
+  trades   Trade[]
 
   // timestamps
   createdAt DateTime @default(now())
@@ -104,14 +81,12 @@ model Trade {
   quantity  Float
 
   // relationships
-  position   Position @relation(fields: [positionId], references: [id])
-  user User @relation(fields: [userId], references: [id])
-  token Token @relation(fields: [tokenId], references: [id])
-  
+  user     User     @relation(fields: [userId], references: [id])
+  token    Token    @relation(fields: [tokenId], references: [id])
+
   // relationship references
-  positionId String
-  userId String
-  tokenId String
+  userId     String
+  tokenId    String
 
   // timestamps
   createdAt DateTime @default(now())
