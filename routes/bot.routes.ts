@@ -17,7 +17,6 @@ import {
   handleFundWithdrawal,
   handleTokenBuy,
   handleTokenCA,
-  handleTokenPreview,
 } from "../controllers/messageHandler";
 
 const router = express.Router();
