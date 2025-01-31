@@ -1,7 +1,11 @@
+import type { SignatureHelpRetriggeredReason } from "typescript";
+import prisma from "../config/prisma";
+import type { TPosition, TToken } from "../d";
 import { connectMongoDB } from "../lib/mongodb";
 import Token from "../models/Token.model";
 import Transaction from "../models/Transaction.model";
 import User from "../models/User.model";
+import { TradeType } from "@prisma/client";
 
 interface ITokenData {
   success: boolean;
@@ -137,84 +141,95 @@ class Meme {
     }
   }
 
-  async buy(
-    chatId: number,
-    amount: number
-  ): Promise<{
+  async buy({
+    chatId,
+    ca,
+    amount,
+  }: {
+    chatId: string;
+    ca: string;
+    amount: number;
+  }): Promise<{
     success: boolean;
     message?: string;
     data?: { buy: { mc: number; price: number }; quantity: number };
   }> {
     try {
-      connectMongoDB();
+      const user = await prisma.user.findFirst({
+        where: { chatId },
+        include: { tokens: { where: { ca } }, stats: {} },
+      });
 
-      const user = await User.findOne({ chatId });
-      const balance = user.balance;
-
-      if (balance < amount)
+      if (user?.balance! < amount) {
         return {
           success: false,
           message: "Balance too low for this transaction 🤭",
         };
+      }
 
-      const token = await Token.findOne({ user: chatId });
-      const ca = await token.ca;
+      const tokenInfo = (await this.data(ca)).data;
+      const buyQtty = amount / tokenInfo?.price!;
 
-      const tokenData = this.data(ca);
-      const tokenPrice = (await tokenData).data?.price!;
-      const tokenQtty = amount / tokenPrice;
+      const { marketCap, price } = tokenInfo!;
 
-      const { marketCap, price, symbol, name } = (await tokenData).data!;
-
-      const record = await Transaction.findOne({
-        trader: chatId,
-        "token.ca": ca,
-      });
-
-      // const single_record = records[0];
-
-      console.log({ record });
-
-      if (!record || record.length < 1) {
-        const trade = new Transaction({
-          trader: user.chatId,
-          marketCap: { buy: marketCap },
-          tokenQtty,
-          usdValue: { buy: price },
-          isOpen: true,
-          token: {
-            symbol: symbol,
-            name: name,
+      if (!user?.tokens || user?.tokens?.length < 1) {
+        const tokenBuy = await prisma.token.create({
+          data: {
+            userId: user?.id!,
             ca,
+            name: tokenInfo?.name!,
+            symbol: tokenInfo?.symbol!,
+            trades: {
+              create: [
+                {
+                  marketCap: tokenInfo?.marketCap!,
+                  usdValue: tokenInfo?.price!,
+                  quantity: buyQtty!,
+                  type: TradeType.BUY,
+                  userId: user?.id!,
+                },
+              ],
+            },
           },
         });
 
-        trade.save();
+        console.log({ tokenBuy });
+
+        return {
+          success: true,
+          data: {
+            buy: { mc: tokenInfo?.marketCap!, price: tokenInfo?.price! },
+            quantity: buyQtty,
+          },
+        };
       } else {
-        const prevBuy = await record.usdValue.buy;
-        record.usdValue.buy += amount;
-        record.tokenQtty += tokenQtty;
-
-        console.log({ prevBuy, recordSecond: record.usdValue.buy });
-
-        record.save();
+        const newBuy = prisma.trade.create({
+          data: {
+            tokenId: user.tokens[0].id,
+            marketCap: tokenInfo?.marketCap!,
+            quantity: buyQtty,
+            type: TradeType.BUY,
+            userId: user.id,
+            usdValue: tokenInfo?.price!,
+          },
+        });
       }
 
-      const prevStats = user.stats;
-      const newStats = {
-        count: prevStats.count + 1,
-        volume: prevStats.volume + amount,
-      };
+      // const prevStats = user.stats.find();
+      // const newStats = {
+      //   count: prevStats?.count! + 1,
+      //   volume: prevStats?.volume! + amount,
+      // };
 
-      // debit the user and update stats
-      const newBalance = balance - amount;
-      user.balance = newBalance;
-      user.stats = newStats;
-      user.save();
+      // // debit the user and update stats
+      // const newBalance = balance - amount;
+      // user.balance = newBalance;
+      // user.stats = newStats;
+      // user.save();
 
       return {
         success: true,
-        data: { buy: { mc: marketCap, price }, quantity: tokenQtty },
+        data: { buy: { mc: marketCap, price }, quantity: buyQtty },
       };
     } catch (error: any) {
       console.log({ error });
@@ -228,30 +243,36 @@ class Meme {
   async positions(chatId: number): Promise<{
     success: boolean;
     message?: string;
-    data?: IPosition[];
+    data?: TToken[];
     meta?: { balance: number; trades: { count: number } };
   }> {
     try {
-      connectMongoDB();
-
       // clear all transactions from database!!!
       // this.emptyStorage();
 
-      const trades = await Transaction.find({ trader: chatId, isOpen: true });
-      console.log({ tradesFromTransactionsHelper: trades });
+      // const trades = await Transaction.find({ trader: chatId, isOpen: true });
+      const tokens = await prisma.user.findFirst({
+        where: { chatId: chatId.toString() },
+        include: { tokens: { where: { isOpenTrade: true } } },
+      });
 
-      const user = await User.findOne({ chatId });
-      const balance = user.balance;
+      console.log({ tokens });
 
-      if (!trades)
-        return {
-          success: false,
-          message: "Your wallet is as clean as a rugged project",
-        };
+      // const user = await User.findOne({ chatId });
+      // const balance = user.balance;
+
+      // if (!trades)
+      //   return {
+      //     success: false,
+      //     message: "Your wallet is as clean as a rugged project",
+      //   };
       return {
         success: true,
-        data: trades,
-        meta: { balance, trades: { count: trades.length } },
+        data: tokens || [],
+        meta: {
+          balance: tokens?.balance ?? 0,
+          trades: { count: tokens?.tokens.length ?? 0 },
+        },
       };
     } catch (error: any) {
       console.log({ error });
@@ -263,8 +284,14 @@ class Meme {
   }
 
   async emptyStorage() {
-    connectMongoDB();
-    await Transaction.deleteMany();
+    try {
+      const deleteTrade = await prisma.trade.deleteMany();
+      const deleteToken = await prisma.token.deleteMany();
+
+      // await prisma.$transaction([deleteTrade, deleteToken]);
+    } catch (error) {
+      return { success: false, message: "Failed to delete all transactions" };
+    }
   }
 }
 

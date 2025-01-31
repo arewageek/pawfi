@@ -1,0 +1,94 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum TradeType {
+  BUY
+  SELL
+}
+
+// user schema
+model User {
+  id String @unique @default(uuid())
+
+  // user biodata
+  chatId  String @unique
+  balance Float
+
+  // relationships
+  stats     Stat[]
+  tokens    Token[]
+  trades    Trade[]
+
+  // timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// stats schema
+model Stat {
+  id     String @unique @default(uuid())
+  volume Float
+  count  Int
+
+  // relationship
+  user   User   @relation(fields: [userId], references: [id])
+  userId String
+
+  // not important now but no harm in including a timestamp
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// tokens schema
+model Token {
+  id     String @unique @default(uuid())
+  
+  name   String
+  symbol String
+  ca     String @unique
+
+  isOpenTrade Boolean @default(false)
+
+  // relationships
+  user   User   @relation(fields: [userId], references: [id])
+  userId String
+
+  trades   Trade[]
+
+  // timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Trade {
+  id   String    @unique @default(uuid())
+  type TradeType
+
+  marketCap Float
+  usdValue  Float
+  quantity  Float
+
+  // relationships
+  user     User     @relation(fields: [userId], references: [id])
+  token    Token    @relation(fields: [tokenId], references: [id])
+
+  // relationship references
+  userId     String
+  tokenId    String
+
+  // timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
