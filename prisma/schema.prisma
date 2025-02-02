@@ -24,7 +24,7 @@ model User {
 
   // user biodata
   chatId  String @unique
-  balance Float
+  balance Float @default(0)
 
   // relationships
   stats     Stat[]

@@ -1,10 +1,5 @@
-import type { SignatureHelpRetriggeredReason } from "typescript";
 import prisma from "../config/prisma";
-import type { TPosition, TToken } from "../d";
-import { connectMongoDB } from "../lib/mongodb";
-import Token from "../models/Token.model";
-import Transaction from "../models/Transaction.model";
-import User from "../models/User.model";
+import type { TToken } from "../d";
 import { TradeType } from "@prisma/client";
 
 interface ITokenData {
@@ -33,22 +28,12 @@ interface ITokenData {
   };
 }
 
-interface IPosition {
-  trader: number;
-  marketCap: { buy: number; sell?: number };
-  tokenQtty: number;
-  usdValue: { buy: number; sell?: number };
-  isOpen: boolean;
-  token: { name: string; symbol: string; ca: string };
-}
-
 class Meme {
   baseUrl = "https://meme-api.openocean.finance";
 
   async data(ca: string, user?: number): Promise<ITokenData> {
-    user && connectMongoDB();
-
     const url = `${this.baseUrl}/market/token/detail?address=${ca}`;
+
     try {
       const req = await fetch(url);
 
@@ -56,8 +41,9 @@ class Meme {
 
       const res = await req.json();
 
-      if (res.data == null)
+      if (res.data == null) {
         return { success: false, message: "No token found" };
+      }
 
       const {
         address,
@@ -83,10 +69,10 @@ class Meme {
       let balance = 0;
 
       if (user) {
-        const account = await User.findOne({ chatId: user });
-        balance = account.balance;
-
-        await this.makeSession(ca, user);
+        const account = await prisma.user.findFirst({
+          where: { chatId: user.toString() },
+        });
+        balance = account?.balance!;
       }
 
       return {
@@ -119,27 +105,7 @@ class Meme {
     }
   }
 
-  async makeSession(ca: string, user: number): Promise<{ success: boolean }> {
-    try {
-      connectMongoDB();
-      const tokenSession = await Token.findOne({ user });
-      if (!tokenSession) {
-        const createRecord = new Token({
-          ca,
-          user,
-        });
-        await createRecord.save();
-      }
-
-      tokenSession.ca = ca;
-      await tokenSession.save();
-
-      return { success: true };
-    } catch (error) {
-      console.log({ error });
-      return { success: false };
-    }
-  }
+  // session management will be done from bot callbackQuesries
 
   async buy({
     chatId,
@@ -192,18 +158,9 @@ class Meme {
             },
           },
         });
-
         console.log({ tokenBuy });
-
-        return {
-          success: true,
-          data: {
-            buy: { mc: tokenInfo?.marketCap!, price: tokenInfo?.price! },
-            quantity: buyQtty,
-          },
-        };
       } else {
-        const newBuy = prisma.trade.create({
+        await prisma.trade.create({
           data: {
             tokenId: user.tokens[0].id,
             marketCap: tokenInfo?.marketCap!,
@@ -214,6 +171,14 @@ class Meme {
           },
         });
       }
+
+      return {
+        success: true,
+        data: {
+          buy: { mc: tokenInfo?.marketCap!, price: tokenInfo?.price! },
+          quantity: buyQtty,
+        },
+      };
 
       // const prevStats = user.stats.find();
       // const newStats = {
@@ -227,10 +192,10 @@ class Meme {
       // user.stats = newStats;
       // user.save();
 
-      return {
-        success: true,
-        data: { buy: { mc: marketCap, price }, quantity: buyQtty },
-      };
+      // return {
+      //   success: true,
+      //   data: { buy: { mc: marketCap, price }, quantity: buyQtty },
+      // };
     } catch (error: any) {
       console.log({ error });
       return {
@@ -268,7 +233,7 @@ class Meme {
       //   };
       return {
         success: true,
-        data: tokens || [],
+        data: tokens?.tokens || [],
         meta: {
           balance: tokens?.balance ?? 0,
           trades: { count: tokens?.tokens.length ?? 0 },
