@@ -1,7 +1,7 @@
 import { InlineKeyboard, type Context } from "grammy";
 import meme from "../helpers/transactions";
 import { response } from "express";
-import users from "./users.controllers";
+import users from "../helpers/account";
 import { format } from "../lib/number-formatter";
 
 export const handleTokenCA = async (ctx: Context) => {
