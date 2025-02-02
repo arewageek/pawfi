@@ -1,40 +1,40 @@
 import type { Context } from "grammy";
 import { connectMongoDB } from "../lib/mongodb";
 import User, { type IUser } from "../models/User.model";
+import prisma from "../config/prisma";
 
 class Users {
   async authenticate(ctx: Context): Promise<{
-    valid: Boolean;
+    success: Boolean;
     data?: IUser;
     message?: string;
-    status: 200 | 201 | 400;
   }> {
     try {
-      const chatId = ctx.chatId;
+      const chatId = ctx.chatId?.toString()!;
 
-      connectMongoDB();
-      const user = await User.findOne({ chatId });
+      const user = await prisma.user.findFirst({ where: { chatId } });
 
       console.log({ userFromControllerStat: user });
-      if (!user) {
-        const { username } = ctx.chat!;
 
-        const trader = new User({
-          chatId,
-          username,
-          balance: 0,
-          stats: { volume: 0, count: 0 },
+      if (!user) {
+        const trader = await prisma.user.create({
+          data: {
+            chatId: chatId,
+            balance: 0,
+          },
         });
 
-        trader.save();
-
         console.log({ trader });
-        return { status: 201, data: trader, valid: true };
+
+        return {
+          success: true,
+          message: "Your account has been successfully created",
+        };
       }
-      return { valid: true, data: user, status: 200 };
+      return { success: true, message: "" };
     } catch (error) {
       console.log({ error });
-      return { valid: false, message: "Error verifying user", status: 400 };
+      return { success: false, message: "Error verifying user" };
     }
   }
 
