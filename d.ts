@@ -1,3 +1,5 @@
+import type { TradeType } from "@prisma/client";
+
 export type TToken = {
   id: string;
 
@@ -8,6 +10,20 @@ export type TToken = {
 
   userId: string;
 
+  trades?: TTrade[];
+
   createdAt: Date;
   updatedAt: Date;
+};
+
+export type TTrade = {
+  id: string;
+  type: TradeType;
+
+  marketCap: number;
+  usdValue: number;
+  quantity: number;
+
+  userId: string;
+  tokenId: string;
 };
