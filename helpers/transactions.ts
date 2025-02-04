@@ -218,7 +218,9 @@ class Meme {
       // const trades = await Transaction.find({ trader: chatId, isOpen: true });
       const tokens = await prisma.user.findFirst({
         where: { chatId: chatId.toString() },
-        include: { tokens: { where: { isOpenTrade: true } } },
+        include: {
+          tokens: { where: { isOpenTrade: true }, include: { trades: {} } },
+        },
       });
 
       console.log({ tokens });

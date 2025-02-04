@@ -1,5 +1,6 @@
 import express from "express";
 import { Bot, Context, MemorySessionStorage, session } from "grammy";
+
 import { run } from "@grammyjs/runner";
 import {
   AccountCallback,
@@ -18,13 +19,8 @@ import {
   handleTokenBuy,
   handleTokenCA,
 } from "../controllers/messageHandler";
-import type {
-  ISessionData,
-  ISessionMemoryData,
-  ISessionStorageData,
-  TContext,
-} from "../d";
-import { initialStateData, initialStoreData } from "../helpers/store";
+import type { TContext } from "../d";
+import { initialStateData } from "../helpers/store";
 
 const router = express.Router();
 
@@ -39,19 +35,14 @@ const getBotInstance = () => {
 
       bot.use(
         session({
-          type: "multi",
-          state: {
-            initial: initialStateData,
-          },
-          store: {
-            initial: initialStoreData,
-          },
+          storage: new MemorySessionStorage(),
+          initial: initialStateData,
         })
       );
 
       bot.command("start", StartContext);
 
-      bot.on("message", async (ctx: Context) => {
+      bot.on("message", async (ctx: TContext) => {
         const replyText: string | undefined =
           ctx.message?.reply_to_message?.text;
         const isReply: boolean = !!replyText;

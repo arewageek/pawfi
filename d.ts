@@ -34,7 +34,7 @@ export type ISessionStorageData = {
   positions: TToken[];
 };
 
-export type ISessionMemoryData = {
+export type ISessionData = {
   trade?: {
     ca: string;
     amount: number;
@@ -86,9 +86,9 @@ export type ISessionMemoryData = {
   };
 };
 
-export interface ISessionData {
-  state: ISessionMemoryData;
-  store: ISessionStorageData;
-}
+// export interface ISessionData {
+//   state: ISessionMemoryData;
+//   store: ISessionStorageData;
+// }
 
 export type TContext = Context & SessionFlavor<ISessionData>;

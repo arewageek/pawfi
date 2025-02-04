@@ -9,7 +9,7 @@ export const initialStoreData = (): ISessionStorageData => {
 };
 
 // initial state session data
-export const initialStateData = (): ISessionMemoryData => {
+export const initialStateData = async (): Promise<ISessionMemoryData> => {
   return {
     trade: undefined,
     preferences: undefined,
