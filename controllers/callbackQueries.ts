@@ -1,21 +1,13 @@
 import { InlineKeyboard, type Context } from "grammy";
 import users from "../helpers/account";
+import type { TContext, TToken } from "../d";
 import meme from "../helpers/transactions";
 import { format } from "../lib/number-formatter";
-import { handleTokenPreview } from "./messageHandler";
-import { Menu } from "@grammyjs/menu";
 
 // start-bot context
-export const StartContext = async (ctx: Context) => {
+export const StartContext = async (ctx: TContext) => {
   try {
     const sender = ctx.chat?.first_name;
-    // const chatId = ctx.chat.id;
-    // const sendMessage = await ctx.replyWithPhoto(
-    //   "https://i.pinimg.com/736x/4d/5e/67/4d5e675307eec14412cf819b9b75b7b4.jpg",
-    //   {
-    //     caption: `Hey, ${sender}! \n\nWelcome to Pawn Finance, an opportunity to max possibilities demo trading memes on solana without losing your real funds`,
-    //   }
-    // );
 
     const user = await users.authenticate(ctx);
 
@@ -110,23 +102,30 @@ export const BuyCallback = async (ctx: Context) => {
   await ctx.reply(reply, { reply_markup: { force_reply: true } });
 };
 
-export const PositionsCallback = async (ctx: Context) => {
+export const PositionsCallback = async (ctx: TContext) => {
   const trader = ctx.chatId!;
 
-  const positions = await meme.positions(trader);
+  let positions: TToken[];
+
+  if (ctx.session.positions.length > 0) {
+    positions = ctx.session.positions;
+  } else {
+    const trades = await meme.positions(trader);
+    positions = trades.data!;
+
+    ctx.session.positions = positions;
+  }
 
   console.log({ positionsFromQuery: positions });
 
   const inlineKeyboard = new InlineKeyboard();
 
-  if (positions.data?.length) {
-    positions.data.forEach((trade, index) => {
-      const contextCallback = `sell ${trade.token.ca}`;
+  if (positions?.length) {
+    positions.forEach((trade, index) => {
+      const contextCallback = `sell ${trade.ca}`;
 
       inlineKeyboard.text(
-        `${trade.token.name} (${format(trade.tokenQtty, 6)} $${
-          trade.token.symbol
-        })`,
+        `${trade.name} (${format(trade.trades, 6)} $${trade.symbol})`,
         contextCallback
       );
 

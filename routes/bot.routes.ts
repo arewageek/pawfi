@@ -1,5 +1,6 @@
 import express from "express";
-import { Bot, Context } from "grammy";
+import { Bot, Context, MemorySessionStorage, session } from "grammy";
+
 import { run } from "@grammyjs/runner";
 import {
   AccountCallback,
@@ -18,28 +19,30 @@ import {
   handleTokenBuy,
   handleTokenCA,
 } from "../controllers/messageHandler";
+import type { TContext } from "../d";
+import { initialStateData } from "../helpers/store";
 
 const router = express.Router();
 
 const botToken = process.env.TG_BOT_API!;
 
-// try {
-//   await bot.init();
-//   await bot.api.setWebhook(process.env.WEBHOOK_URL!);
-// } catch (error) {
-//   console.log({ error });
-// }
-
-let bot: Bot | null = null;
+let bot: Bot<TContext> | null = null;
 
 const getBotInstance = () => {
   try {
     if (!bot) {
-      bot = new Bot(botToken);
+      bot = new Bot<TContext>(botToken);
+
+      bot.use(
+        session({
+          storage: new MemorySessionStorage(),
+          initial: initialStateData,
+        })
+      );
 
       bot.command("start", StartContext);
 
-      bot.on("message", async (ctx: Context) => {
+      bot.on("message", async (ctx: TContext) => {
         const replyText: string | undefined =
           ctx.message?.reply_to_message?.text;
         const isReply: boolean = !!replyText;

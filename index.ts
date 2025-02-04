@@ -1,6 +1,5 @@
 import express from "express";
 import bot from "./routes/bot.routes";
-import { Bot, webhookCallback } from "grammy";
 
 const app = express();
 

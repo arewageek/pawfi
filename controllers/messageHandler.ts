@@ -1,8 +1,9 @@
-import { InlineKeyboard, type Context } from "grammy";
+import { InlineKeyboard, session, type Context } from "grammy";
 import meme from "../helpers/transactions";
 import { response } from "express";
 import users from "../helpers/account";
 import { format } from "../lib/number-formatter";
+import type { TContext } from "../d";
 
 export const handleTokenCA = async (ctx: Context) => {
   const ca = ctx.message?.text!;
@@ -90,14 +91,18 @@ export const handleFundWithdrawal = async (ctx: Context) => {
   ctx.reply(reply);
 };
 
-export const handleTokenBuy = async (ctx: Context) => {
+export const handleTokenBuy = async (ctx: TContext) => {
   const amount = Number(ctx.message?.text);
-  const chatId = ctx.chatId!;
+  const chatId = ctx.chatId?.toString()!;
 
   let reply = `Processing your transaction...`;
   ctx.reply(reply);
 
-  const trx = await meme.buy(chatId, amount);
+  const trx = await meme.buy({
+    chatId,
+    amount,
+    ca: ctx.session.trade?.ca as string,
+  });
   if (!trx.success) {
     reply = trx.message!;
   } else {
